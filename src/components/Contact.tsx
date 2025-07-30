@@ -89,7 +89,7 @@ const Contact = () => {
       title: "View Resume",
       description: "Download my latest CV",
       icon: ExternalLink,
-      href: "/karl-mabou-resume.pdf",
+      href: "/karlmabs-resume.pdf",
       color: "from-green-500 to-teal-500",
     },
     {
