@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: karl-portfolio-pdb
+  namespace: karl-portfolio
+  labels:
+    app: karl-portfolio
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: karl-portfolio

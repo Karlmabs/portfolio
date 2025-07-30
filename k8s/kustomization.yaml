@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: karl-portfolio
+  namespace: karl-portfolio
+
+resources:
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+- ingress.yaml
+- hpa.yaml
+- pdb.yaml
+
+commonLabels:
+  app: karl-portfolio
+  environment: production
+
+images:
+- name: karl-portfolio
+  newName: your-registry/karl-portfolio
+  newTag: latest
