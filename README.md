@@ -24,7 +24,7 @@ A modern, responsive portfolio website showcasing my expertise as a Full-Stack D
 
 ## 📋 Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 - Docker (for containerization)
 - kubectl (for Kubernetes deployment)
@@ -34,17 +34,20 @@ A modern, responsive portfolio website showcasing my expertise as a Full-Stack D
 ### Local Development
 
 1. **Clone the repository**
+
    ```bash
-   git clone https://github.com/karlmabou/portfolio.git
+   git clone https://github.com/karlmabs/portfolio.git
    cd portfolio
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Start development server**
+
    ```bash
    npm run dev
    ```
@@ -64,11 +67,13 @@ npm run preview
 ## 🐳 Docker Deployment
 
 ### Build Docker Image
+
 ```bash
 docker build -t karl-portfolio:latest .
 ```
 
 ### Run Container
+
 ```bash
 docker run -p 3000:3000 karl-portfolio:latest
 ```
@@ -76,6 +81,7 @@ docker run -p 3000:3000 karl-portfolio:latest
 ## ☸️ Kubernetes Deployment
 
 ### Prerequisites
+
 - Kubernetes cluster (local or cloud)
 - kubectl configured
 - Nginx Ingress Controller
@@ -84,15 +90,17 @@ docker run -p 3000:3000 karl-portfolio:latest
 ### Deploy to Kubernetes
 
 1. **Quick deployment**
+
    ```bash
    ./deploy.sh
    ```
 
 2. **Manual deployment**
+
    ```bash
    # Apply all manifests
    kubectl apply -f k8s/
-   
+
    # Check deployment status
    kubectl get pods -n karl-portfolio
    kubectl get svc -n karl-portfolio
@@ -127,7 +135,9 @@ kubectl delete -f k8s/
 ## 🎨 Customization
 
 ### Colors and Themes
+
 Update the color scheme in `tailwind.config.js`:
+
 ```javascript
 theme: {
   extend: {
@@ -141,6 +151,7 @@ theme: {
 ```
 
 ### Content Updates
+
 - **Personal Info**: Update `src/components/Hero.tsx`
 - **Skills**: Modify `src/components/Skills.tsx`
 - **Experience**: Edit `src/components/Experience.tsx`
@@ -148,6 +159,7 @@ theme: {
 - **Contact**: Modify `src/components/Contact.tsx`
 
 ### Adding New Sections
+
 1. Create a new component in `src/components/`
 2. Import and add to `src/App.tsx`
 3. Update navigation in `src/components/Header.tsx`
@@ -155,7 +167,9 @@ theme: {
 ## 🔧 Configuration
 
 ### Environment Variables
+
 Create a `.env` file for environment-specific configurations:
+
 ```bash
 VITE_CONTACT_EMAIL=your.email@example.com
 VITE_LINKEDIN_URL=https://linkedin.com/in/yourprofile
@@ -163,14 +177,18 @@ VITE_GITHUB_URL=https://github.com/yourusername
 ```
 
 ### Nginx Configuration
+
 Customize `nginx.conf` for specific requirements:
+
 - Cache settings
 - Security headers
 - Rate limiting
 - Redirects
 
 ### Kubernetes Configuration
+
 Update `k8s/` manifests for your environment:
+
 - Change domain names in `ingress.yaml`
 - Adjust resource limits in `deployment.yaml`
 - Modify scaling parameters in `hpa.yaml`
@@ -203,9 +221,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Contact
 
 **Karl Mabou**
-- Email: karl.mabou.kouam@example.com
-- LinkedIn: [linkedin.com/in/karlmabou](https://linkedin.com/in/karlmabou)
-- GitHub: [github.com/karlmabou](https://github.com/karlmabou)
+
+- Email: maboukarl2@gmail.com
+- LinkedIn: [linkedin.com/in/karlmabs](https://linkedin.com/in/karlmabs)
+- GitHub: [github.com/karlmabs](https://github.com/karlmabs)
 - Location: Brussels, Belgium
 
 ## 🙏 Acknowledgments

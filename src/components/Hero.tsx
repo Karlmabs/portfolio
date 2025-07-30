@@ -126,7 +126,7 @@ const Hero = () => {
                 <Mail className="w-6 h-6" />
               </motion.a>
               <motion.a
-                href="https://linkedin.com/in/karlmabou"
+                href="https://linkedin.com/in/karlmabs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-3 rounded-full glass-morphism hover:bg-white/10 text-gray-300 hover:text-blue-400 transition-all duration-300"
@@ -136,7 +136,7 @@ const Hero = () => {
                 <Linkedin className="w-6 h-6" />
               </motion.a>
               <motion.a
-                href="https://github.com/karlmabou"
+                href="https://github.com/karlmabs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-3 rounded-full glass-morphism hover:bg-white/10 text-gray-300 hover:text-gray-100 transition-all duration-300"

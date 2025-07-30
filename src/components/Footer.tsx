@@ -20,19 +20,19 @@ const Footer = () => {
   const socialLinks = [
     {
       icon: Github,
-      href: 'https://github.com/karlmabou',
+      href: 'https://github.com/karlmabs',
       label: 'GitHub',
       color: 'hover:text-gray-300'
     },
     {
       icon: Linkedin,
-      href: 'https://linkedin.com/in/karlmabou',
+      href: 'https://linkedin.com/in/karlmabs',
       label: 'LinkedIn',
       color: 'hover:text-blue-400'
     },
     {
       icon: Mail,
-      href: 'mailto:karl.mabou.kouam@example.com',
+      href: 'mailto:maboukarl2@gmail.com',
       label: 'Email',
       color: 'hover:text-red-400'
     }
