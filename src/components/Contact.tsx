@@ -395,7 +395,7 @@ const Contact = () => {
               <span>Start a Conversation</span>
             </motion.a>
             <motion.a
-              href="/karl-mabou-resume.pdf"
+              href="/karlmabs-resume.pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-3 glass-morphism hover:bg-white/10 text-gray-300 hover:text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2"
