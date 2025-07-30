@@ -82,7 +82,7 @@ const Contact = () => {
       title: "Schedule a Call",
       description: "Book a 30-minute consultation",
       icon: Calendar,
-      href: "https://calendly.com/karlmabou",
+      href: "https://calendly.com/karlmabs",
       color: "from-blue-500 to-cyan-500",
     },
     {
