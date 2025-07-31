@@ -1,221 +1,78 @@
-name: Build and Deploy Karl Portfolio
+name: Build, Push, and Deploy React Portfolio
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-env:
-  REGISTRY: docker.io
-  IMAGE_NAME: karl-portfolio
-  KUBERNETES_NAMESPACE: karl-portfolio
+    branches:
+      - main
 
 jobs:
-  build-and-test:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: "18"
-          cache: "npm"
+          node-version: '18'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Run linting
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Build application
+      - name: Build React App
         run: npm run build
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-          retention-days: 1
-
-  build-and-push-image:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    permissions:
-      contents: read
-      packages: write
-
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
-      image-tag: ${{ steps.meta.outputs.tags }}
-      image-name: ${{ steps.image-name.outputs.image-name }}
-      latest-image: ${{ steps.image-name.outputs.latest-image }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v2
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Create image name
-        id: image-name
+      - name: Build and Tag Docker Image
         run: |
-          # Use commit SHA for unique tagging to ensure fresh pulls
-          COMMIT_SHA="${{ github.sha }}"
-          SHORT_SHA="${COMMIT_SHA:0:7}"
-          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
+          docker build -t karlmabs/karl-portfolio:latest .
+          docker tag karlmabs/karl-portfolio:latest karlmabs/karl-portfolio:${{ github.sha }}
 
-          # Also create a latest tag for convenience
-          LATEST_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
-
-          echo "image-name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          echo "latest-image=${LATEST_IMAGE}" >> $GITHUB_OUTPUT
-          echo "🏷️ Unique image name: ${IMAGE_NAME}"
-          echo "🏷️ Latest image name: ${LATEST_IMAGE}"
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ github.sha }}
-            type=raw,value={{sha}}
-
-      - name: Debug metadata outputs
+      - name: Push Docker Image to Docker Hub
         run: |
-          echo "🔍 Metadata outputs:"
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Labels: ${{ steps.meta.outputs.labels }}"
+          docker push karlmabs/karl-portfolio:latest
+          docker push karlmabs/karl-portfolio:${{ github.sha }}
 
-      - name: Debug metadata outputs
+      - name: Ensure Image is Available
         run: |
-          echo "🔍 Metadata outputs:"
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Labels: ${{ steps.meta.outputs.labels }}"
+          sleep 30  # Allow time for Docker push
+          docker pull karlmabs/karl-portfolio:${{ github.sha }}
 
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Debug build outputs
-        run: |
-          echo "🔍 Build outputs:"
-          echo "Digest: ${{ steps.build.outputs.digest }}"
-          echo "Image ID: ${{ steps.build.outputs.imageid }}"
-
-  deploy:
-    needs: [build-and-test, build-and-push-image]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.url }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup kubectl
+      - name: Set up kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: "latest"
+          version: 'latest'
 
-      - name: Configure kubectl
+      - name: Authenticate with Kubernetes
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig
+          export KUBECONFIG=kubeconfig
 
-      - name: Update deployment image
+      - name: Update or Create Deployment
         run: |
-          # Debug: Show all available outputs
-          echo "🔍 Available outputs:"
-          echo "image-tag: '${{ needs.build-and-push-image.outputs.image-tag }}'"
-          echo "image-name: '${{ needs.build-and-push-image.outputs.image-name }}'"
-
-          # Use the SHA-based image name for guaranteed fresh pulls
-          if [[ -n "${{ needs.build-and-push-image.outputs.image-name }}" ]]; then
-            IMAGE_TAG="${{ needs.build-and-push-image.outputs.image-name }}"
-            echo "🔄 Using SHA-based image name: ${IMAGE_TAG}"
-            echo "📝 This ensures Kubernetes pulls the latest image (no caching issues)"
+          if kubectl --kubeconfig=kubeconfig get deployment karl-portfolio; then
+            kubectl --kubeconfig=kubeconfig set image deployment/karl-portfolio karl-portfolio=karlmabs/karl-portfolio:${{ github.sha }} --record
           else
-            # Extract the first tag from the multi-line output as fallback
-            IMAGE_TAG=$(echo "${{ needs.build-and-push-image.outputs.image-tag }}" | head -n1)
-            echo "🔄 Using extracted tag: ${IMAGE_TAG}"
+            kubectl --kubeconfig=kubeconfig apply -f k8s/deployment.yaml
           fi
 
-          # Validate that we have a proper image tag
-          if [[ -z "${IMAGE_TAG}" ]]; then
-            echo "❌ Error: No image tag found"
-            echo "Available tags output: '${{ needs.build-and-push-image.outputs.image-tag }}'"
-            echo "Available image-name output: '${{ needs.build-and-push-image.outputs.image-name }}'"
-            exit 1
-          fi
-
-          # Update the image in deployment.yaml with the new image tag
-          sed -i "s|image: PLACEHOLDER_IMAGE|image: ${IMAGE_TAG}|g" k8s/deployment.yaml
-
-          # Verify the replacement worked
-          echo "📋 Updated deployment.yaml:"
-          grep "image:" k8s/deployment.yaml
-
-          # Double-check that placeholder was replaced
-          if grep -q "PLACEHOLDER_IMAGE" k8s/deployment.yaml; then
-            echo "❌ Error: PLACEHOLDER_IMAGE was not replaced"
-            exit 1
-          fi
-
-      - name: Deploy to Kubernetes
-        id: deploy
+      - name: Restart Deployment
         run: |
-          # Apply all Kubernetes manifests
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/
+          kubectl --kubeconfig=kubeconfig rollout restart deployment/karl-portfolio
 
-          # Wait for deployment to be ready
-          kubectl wait --for=condition=available --timeout=300s deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
-
-          # Get service information
-          echo "url=Deployment successful - check your cluster for access details" >> $GITHUB_OUTPUT
-
-      - name: Verify deployment
+      - name: Apply Kubernetes Configurations
         run: |
-          echo "🚀 Deployment Status:"
-          kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }}
-          kubectl get svc -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl --kubeconfig=kubeconfig apply -f k8s/deployment.yaml
+          kubectl --kubeconfig=kubeconfig apply -f k8s/service.yaml
 
-          echo "📊 Deployment Details:"
-          kubectl describe deployment karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
-
-      - name: Rollback on failure
-        if: failure()
+      - name: Verify Deployment
         run: |
-          echo "❌ Deployment failed, attempting rollback..."
-          kubectl rollout undo deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
-          kubectl rollout status deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl --kubeconfig=kubeconfig rollout status deployment karl-portfolio
+          kubectl --kubeconfig=kubeconfig get pods
