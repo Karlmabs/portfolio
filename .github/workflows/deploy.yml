@@ -1,0 +1,174 @@
+name: Build and Deploy Karl Portfolio
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: karl-portfolio
+  KUBERNETES_NAMESPACE: karl-portfolio
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  build-and-push-image:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: [build-and-test, build-and-push-image]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Update deployment image
+        run: |
+          # Update the image in deployment.yaml with the new image tag
+          IMAGE_TAG="${{ needs.build-and-push-image.outputs.image-tag }}"
+          sed -i "s|image: karl-portfolio:latest|image: ${IMAGE_TAG}|g" k8s/deployment.yaml
+
+      - name: Deploy to Kubernetes
+        id: deploy
+        run: |
+          # Apply all Kubernetes manifests
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/
+
+          # Wait for deployment to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
+
+          # Get the ingress URL (if available)
+          INGRESS_URL=$(kubectl get ingress karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }} -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
+          if [ -n "$INGRESS_URL" ]; then
+            echo "url=https://$INGRESS_URL" >> $GITHUB_OUTPUT
+          else
+            echo "url=Deployment successful - check your cluster for access details" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify deployment
+        run: |
+          echo "🚀 Deployment Status:"
+          kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl get svc -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl get ingress -n ${{ env.KUBERNETES_NAMESPACE }}
+
+          echo "📊 Deployment Details:"
+          kubectl describe deployment karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed, attempting rollback..."
+          kubectl rollout undo deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl rollout status deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
+
+  notify:
+    needs: [build-and-test, build-and-push-image, deploy]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            echo "🔗 Application URL: ${{ needs.deploy.outputs.url }}"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi

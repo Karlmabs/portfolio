@@ -17,11 +17,11 @@ metadata:
 spec:
   tls:
   - hosts:
-    - karlmabou.com
-    - www.karlmabou.com
+    - karlmabs.com
+    - www.karlmabs.com
     secretName: karl-portfolio-tls
   rules:
-  - host: karlmabou.com
+  - host: karlmabs.com
     http:
       paths:
       - path: /
@@ -31,7 +31,7 @@ spec:
             name: karl-portfolio-service
             port:
               number: 80
-  - host: www.karlmabou.com
+  - host: www.karlmabs.com
     http:
       paths:
       - path: /
