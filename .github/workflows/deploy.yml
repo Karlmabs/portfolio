@@ -156,19 +156,3 @@ jobs:
           echo "❌ Deployment failed, attempting rollback..."
           kubectl rollout undo deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
           kubectl rollout status deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
-
-  notify:
-    needs: [build-and-test, build-and-push-image, deploy]
-    runs-on: ubuntu-latest
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Notify deployment status
-        run: |
-          if [ "${{ needs.deploy.result }}" == "success" ]; then
-            echo "✅ Deployment successful!"
-            echo "🔗 Application URL: ${{ needs.deploy.outputs.url }}"
-          else
-            echo "❌ Deployment failed!"
-            exit 1
-          fi
