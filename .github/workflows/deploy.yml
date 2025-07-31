@@ -54,6 +54,8 @@ jobs:
     outputs:
       image-digest: ${{ steps.build.outputs.digest }}
       image-tag: ${{ steps.meta.outputs.tags }}
+      image-name: ${{ steps.image-name.outputs.image-name }}
+      latest-image: ${{ steps.image-name.outputs.latest-image }}
 
     steps:
       - name: Checkout code
@@ -69,16 +71,44 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Create image name
+        id: image-name
+        run: |
+          # Use commit SHA for unique tagging to ensure fresh pulls
+          COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
+
+          # Also create a latest tag for convenience
+          LATEST_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+
+          echo "image-name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "latest-image=${LATEST_IMAGE}" >> $GITHUB_OUTPUT
+          echo "🏷️ Unique image name: ${IMAGE_NAME}"
+          echo "🏷️ Latest image name: ${LATEST_IMAGE}"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.sha }}
+            type=raw,value={{sha}}
+
+      - name: Debug metadata outputs
+        run: |
+          echo "🔍 Metadata outputs:"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Labels: ${{ steps.meta.outputs.labels }}"
+
+      - name: Debug metadata outputs
+        run: |
+          echo "🔍 Metadata outputs:"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Labels: ${{ steps.meta.outputs.labels }}"
 
       - name: Build and push Docker image
         id: build
@@ -91,6 +121,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Debug build outputs
+        run: |
+          echo "🔍 Build outputs:"
+          echo "Digest: ${{ steps.build.outputs.digest }}"
+          echo "Image ID: ${{ steps.build.outputs.imageid }}"
 
   deploy:
     needs: [build-and-test, build-and-push-image]
@@ -118,17 +154,27 @@ jobs:
 
       - name: Update deployment image
         run: |
-          # Debug: Show all available tags
-          echo "🔍 All available tags:"
-          echo "${{ needs.build-and-push-image.outputs.image-tag }}"
+          # Debug: Show all available outputs
+          echo "🔍 Available outputs:"
+          echo "image-tag: '${{ needs.build-and-push-image.outputs.image-tag }}'"
+          echo "image-name: '${{ needs.build-and-push-image.outputs.image-name }}'"
 
-          # Extract the first (latest) tag from the multi-line output
-          IMAGE_TAG=$(echo "${{ needs.build-and-push-image.outputs.image-tag }}" | head -n1)
-          echo "🔄 Selected image tag: ${IMAGE_TAG}"
+          # Use the SHA-based image name for guaranteed fresh pulls
+          if [[ -n "${{ needs.build-and-push-image.outputs.image-name }}" ]]; then
+            IMAGE_TAG="${{ needs.build-and-push-image.outputs.image-name }}"
+            echo "🔄 Using SHA-based image name: ${IMAGE_TAG}"
+            echo "📝 This ensures Kubernetes pulls the latest image (no caching issues)"
+          else
+            # Extract the first tag from the multi-line output as fallback
+            IMAGE_TAG=$(echo "${{ needs.build-and-push-image.outputs.image-tag }}" | head -n1)
+            echo "🔄 Using extracted tag: ${IMAGE_TAG}"
+          fi
 
           # Validate that we have a proper image tag
           if [[ -z "${IMAGE_TAG}" ]]; then
             echo "❌ Error: No image tag found"
+            echo "Available tags output: '${{ needs.build-and-push-image.outputs.image-tag }}'"
+            echo "Available image-name output: '${{ needs.build-and-push-image.outputs.image-name }}'"
             exit 1
           fi
 
