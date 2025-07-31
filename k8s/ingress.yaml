@@ -3,41 +3,39 @@ kind: Ingress
 metadata:
   name: karl-portfolio-ingress
   namespace: karl-portfolio
-  labels:
-    app: karl-portfolio
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    # Uncomment the next line if you have cert-manager installed
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
-  tls:
-  - hosts:
-    - karlmabs.com
-    - www.karlmabs.com
-    secretName: karl-portfolio-tls
+  ingressClassName: nginx
   rules:
-  - host: karlmabs.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: karl-portfolio-service
-            port:
-              number: 80
-  - host: www.karlmabs.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: karl-portfolio-service
-            port:
-              number: 80
+    - host: karlmabs.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: karl-portfolio
+                port:
+                  number: 80
+    - host: www.karlmabs.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: karl-portfolio
+                port:
+                  number: 80
+  # Uncomment for SSL/TLS with cert-manager
+  # tls:
+  # - hosts:
+  #   - karlmabs.com
+  #   - www.karlmabs.com
+  #   secretName: karlmabs-tls

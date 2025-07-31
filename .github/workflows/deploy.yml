@@ -120,7 +120,12 @@ jobs:
         run: |
           # Update the image in deployment.yaml with the new image tag
           IMAGE_TAG="${{ needs.build-and-push-image.outputs.image-tag }}"
-          sed -i "s|image: karl-portfolio:latest|image: ${IMAGE_TAG}|g" k8s/deployment.yaml
+          echo "🔄 Updating deployment image to: ${IMAGE_TAG}"
+          sed -i "s|image: PLACEHOLDER_IMAGE|image: ${IMAGE_TAG}|g" k8s/deployment.yaml
+
+          # Verify the replacement worked
+          echo "📋 Updated deployment.yaml:"
+          grep "image:" k8s/deployment.yaml
 
       - name: Deploy to Kubernetes
         id: deploy
@@ -132,20 +137,14 @@ jobs:
           # Wait for deployment to be ready
           kubectl wait --for=condition=available --timeout=300s deployment/karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
 
-          # Get the ingress URL (if available)
-          INGRESS_URL=$(kubectl get ingress karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }} -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
-          if [ -n "$INGRESS_URL" ]; then
-            echo "url=https://$INGRESS_URL" >> $GITHUB_OUTPUT
-          else
-            echo "url=Deployment successful - check your cluster for access details" >> $GITHUB_OUTPUT
-          fi
+          # Get service information
+          echo "url=Deployment successful - check your cluster for access details" >> $GITHUB_OUTPUT
 
       - name: Verify deployment
         run: |
           echo "🚀 Deployment Status:"
           kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }}
           kubectl get svc -n ${{ env.KUBERNETES_NAMESPACE }}
-          kubectl get ingress -n ${{ env.KUBERNETES_NAMESPACE }}
 
           echo "📊 Deployment Details:"
           kubectl describe deployment karl-portfolio -n ${{ env.KUBERNETES_NAMESPACE }}
