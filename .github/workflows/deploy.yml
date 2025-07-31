@@ -118,14 +118,32 @@ jobs:
 
       - name: Update deployment image
         run: |
+          # Debug: Show all available tags
+          echo "🔍 All available tags:"
+          echo "${{ needs.build-and-push-image.outputs.image-tag }}"
+
+          # Extract the first (latest) tag from the multi-line output
+          IMAGE_TAG=$(echo "${{ needs.build-and-push-image.outputs.image-tag }}" | head -n1)
+          echo "🔄 Selected image tag: ${IMAGE_TAG}"
+
+          # Validate that we have a proper image tag
+          if [[ -z "${IMAGE_TAG}" ]]; then
+            echo "❌ Error: No image tag found"
+            exit 1
+          fi
+
           # Update the image in deployment.yaml with the new image tag
-          IMAGE_TAG="${{ needs.build-and-push-image.outputs.image-tag }}"
-          echo "🔄 Updating deployment image to: ${IMAGE_TAG}"
           sed -i "s|image: PLACEHOLDER_IMAGE|image: ${IMAGE_TAG}|g" k8s/deployment.yaml
 
           # Verify the replacement worked
           echo "📋 Updated deployment.yaml:"
           grep "image:" k8s/deployment.yaml
+
+          # Double-check that placeholder was replaced
+          if grep -q "PLACEHOLDER_IMAGE" k8s/deployment.yaml; then
+            echo "❌ Error: PLACEHOLDER_IMAGE was not replaced"
+            exit 1
+          fi
 
       - name: Deploy to Kubernetes
         id: deploy
