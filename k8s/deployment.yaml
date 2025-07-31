@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: karl-portfolio
-  namespace: karl-portfolio
   labels:
     app: karl-portfolio
 spec:
@@ -15,19 +14,11 @@ spec:
       labels:
         app: karl-portfolio
     spec:
+      nodeSelector:
+        "kubernetes.io/hostname": ubuntu
       containers:
-        - name: portfolio
-          image: PLACEHOLDER_IMAGE
-          imagePullPolicy: Always
+        - name: karl-portfolio
+          image: karlmabs/karl-portfolio:latest
           ports:
             - containerPort: 3000
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "256Mi"
-              cpu: "200m"
-          env:
-            - name: NODE_ENV
-              value: "production"
+      restartPolicy: Always

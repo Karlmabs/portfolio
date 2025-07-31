@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: karl-portfolio
-  labels:
-    name: karl-portfolio
-    environment: production

@@ -2,13 +2,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: karl-portfolio
-  namespace: karl-portfolio
-  labels:
-    app: karl-portfolio
 spec:
-  type: ClusterIP
-  ports:
-    - port: 80
-      targetPort: 3000
   selector:
     app: karl-portfolio
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: ClusterIP
